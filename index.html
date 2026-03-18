@@ -1,0 +1,912 @@
+<!DOCTYPE html>
+<html lang="en">
+
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Field App - Enhanced</title>
+    <link rel="stylesheet" href="https://unpkg.com/leaflet/dist/leaflet.css" />
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.0.0/css/all.min.css">
+    <script src="https://unpkg.com/leaflet/dist/leaflet.js"></script>
+    <script src="https://cdn.jsdelivr.net/npm/html2canvas@1.4.1/dist/html2canvas.min.js"></script>
+
+    <link rel="manifest" href="manifest.json">
+
+    <meta name="theme-color" content="#667eea">
+
+    <meta name="mobile-web-app-capable" content="yes">
+    <meta name="apple-mobile-web-app-capable" content="yes">
+    <meta name="apple-mobile-web-app-status-bar-style" content="default">
+
+    <style>
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+        }
+
+        body {
+            font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            min-height: 100vh;
+        }
+
+        .page {
+            display: none;
+            min-height: 100vh;
+            padding: 20px;
+            padding-bottom: 80px;
+            background: rgba(255, 255, 255, 0.95);
+            backdrop-filter: blur(10px);
+            box-sizing: border-box;
+            animation: fadeIn 0.3s ease-in;
+        }
+
+        @keyframes fadeIn {
+            from {
+                opacity: 0;
+                transform: translateY(10px);
+            }
+
+            to {
+                opacity: 1;
+                transform: translateY(0);
+            }
+        }
+
+        .active {
+            display: block;
+        }
+
+        h1 {
+            color: #333;
+            margin-bottom: 20px;
+            font-size: 28px;
+            font-weight: 600;
+            text-align: center;
+            position: relative;
+            padding-bottom: 10px;
+        }
+
+        h1:after {
+            content: '';
+            position: absolute;
+            bottom: 0;
+            left: 50%;
+            transform: translateX(-50%);
+            width: 60px;
+            height: 3px;
+            background: linear-gradient(to right, #667eea, #764ba2);
+            border-radius: 2px;
+        }
+
+        h1 i {
+            margin-right: 10px;
+            color: #667eea;
+        }
+
+        input,
+        select,
+        button {
+            width: 100%;
+            padding: 15px;
+            margin-bottom: 15px;
+            border: 2px solid #e0e0e0;
+            border-radius: 12px;
+            font-size: 16px;
+            transition: all 0.3s ease;
+        }
+
+        input:focus,
+        select:focus {
+            outline: none;
+            border-color: #667eea;
+            box-shadow: 0 0 0 3px rgba(102, 126, 234, 0.1);
+        }
+
+        button {
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            color: white;
+            border: none;
+            font-weight: 600;
+            cursor: pointer;
+            box-shadow: 0 4px 15px rgba(102, 126, 234, 0.4);
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            gap: 10px;
+        }
+
+        button i {
+            font-size: 18px;
+        }
+
+        button:hover {
+            transform: translateY(-2px);
+            box-shadow: 0 6px 20px rgba(102, 126, 234, 0.5);
+        }
+
+        button:active {
+            transform: translateY(0);
+        }
+
+        #map,
+        #miniMap {
+            height: 280px;
+            width: 100%;
+            border-radius: 16px;
+            box-shadow: 0 10px 30px rgba(0, 0, 0, 0.1);
+            border: 3px solid white;
+        }
+
+        #miniMap {
+            width: 220px;
+            height: 220px;
+            position: absolute;
+            left: -9999px;
+            top: -9999px;
+        }
+
+        #status {
+            background: linear-gradient(135deg, #f093fb 0%, #f5576c 100%);
+            color: white;
+            padding: 15px;
+            border-radius: 12px;
+            margin-bottom: 20px;
+            text-align: center;
+            font-weight: 600;
+            box-shadow: 0 4px 15px rgba(245, 87, 108, 0.3);
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            gap: 10px;
+        }
+
+        #address {
+            background: #f8f9fa;
+            padding: 15px;
+            border-radius: 12px;
+            margin-bottom: 15px;
+            border-left: 4px solid #667eea;
+            font-size: 14px;
+            color: #666;
+            display: flex;
+            align-items: flex-start;
+            gap: 10px;
+        }
+
+        #address i {
+            color: #667eea;
+            font-size: 18px;
+            margin-top: 2px;
+        }
+
+        #preview,
+        #finalPreview {
+            width: 100%;
+            border-radius: 16px;
+            display: none;
+            margin-top: 15px;
+            box-shadow: 0 10px 30px rgba(0, 0, 0, 0.2);
+            border: 3px solid white;
+        }
+
+        .nav {
+            position: fixed;
+            bottom: 0;
+            left: 0;
+            width: 100%;
+            display: flex;
+            gap: 2px;
+            height: 70px;
+            background: transparent;
+            padding: 10px;
+        }
+
+        .nav button {
+            flex: 1;
+            border: none;
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            color: white;
+            font-size: 18px;
+            font-weight: 600;
+            margin: 0 5px;
+            border-radius: 35px;
+            box-shadow: 0 -4px 20px rgba(0, 0, 0, 0.2);
+            text-transform: uppercase;
+            letter-spacing: 1px;
+        }
+
+        .nav button:first-child {
+            background: linear-gradient(135deg, #f093fb 0%, #f5576c 100%);
+        }
+
+        #retakeBtn,
+        #downloadBtn,
+        #shareBtn {
+            margin-top: 10px;
+            font-size: 16px;
+        }
+
+        #downloadBtn {
+            background: linear-gradient(135deg, #4facfe 0%, #00f2fe 100%);
+        }
+
+        #shareBtn {
+            background: linear-gradient(135deg, #25D366 0%, #128C7E 100%);
+        }
+
+        /* Loading Overlay */
+        .loading-overlay {
+            position: fixed;
+            top: 0;
+            left: 0;
+            width: 100%;
+            height: 100%;
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            display: flex;
+            justify-content: center;
+            align-items: center;
+            z-index: 9999;
+            transition: opacity 0.5s ease, visibility 0.5s ease;
+        }
+
+        .loading-overlay.hidden {
+            opacity: 0;
+            visibility: hidden;
+        }
+
+        .loading-content {
+            text-align: center;
+            color: white;
+            padding: 20px;
+        }
+
+        .loading-spinner {
+            width: 60px;
+            height: 60px;
+            border: 5px solid rgba(255, 255, 255, 0.3);
+            border-top: 5px solid white;
+            border-radius: 50%;
+            animation: spin 1s linear infinite;
+            margin: 0 auto 20px;
+        }
+
+        @keyframes spin {
+            0% {
+                transform: rotate(0deg);
+            }
+
+            100% {
+                transform: rotate(360deg);
+            }
+        }
+
+        .loading-text {
+            font-size: 18px;
+            font-weight: 600;
+            margin-bottom: 10px;
+        }
+
+        .loading-subtext {
+            font-size: 14px;
+            opacity: 0.8;
+        }
+
+        .loading-progress {
+            width: 200px;
+            height: 4px;
+            background: rgba(255, 255, 255, 0.2);
+            border-radius: 2px;
+            margin: 20px auto 0;
+            overflow: hidden;
+        }
+
+        .loading-progress-bar {
+            height: 100%;
+            background: white;
+            width: 0%;
+            animation: progress 2s ease-in-out infinite;
+        }
+
+        @keyframes progress {
+            0% {
+                width: 0%;
+            }
+
+            50% {
+                width: 70%;
+            }
+
+            100% {
+                width: 100%;
+            }
+        }
+
+        /* Image Creation Overlay */
+        .creation-overlay {
+            position: fixed;
+            top: 0;
+            left: 0;
+            width: 100%;
+            height: 100%;
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            display: none;
+            justify-content: center;
+            align-items: center;
+            z-index: 9998;
+            backdrop-filter: blur(5px);
+        }
+
+        .creation-overlay.active {
+            display: flex;
+        }
+
+        .creation-content {
+            text-align: center;
+            color: white;
+            padding: 20px;
+            animation: pulse 2s infinite;
+        }
+
+        .creation-spinner {
+            width: 80px;
+            height: 80px;
+            border: 6px solid rgba(255, 255, 255, 0.3);
+            border-top: 6px solid white;
+            border-right: 6px solid white;
+            border-radius: 50%;
+            animation: spin 0.8s linear infinite;
+            margin: 0 auto 30px;
+        }
+
+        .creation-text {
+            font-size: 24px;
+            font-weight: 600;
+            margin-bottom: 15px;
+        }
+
+        .creation-subtext {
+            font-size: 16px;
+            opacity: 0.9;
+        }
+
+        /* Card Styles */
+        .card {
+            background: white;
+            border-radius: 20px;
+            padding: 20px;
+            margin-bottom: 20px;
+            box-shadow: 0 10px 30px rgba(0, 0, 0, 0.1);
+        }
+
+        .input-group {
+            position: relative;
+            margin-bottom: 15px;
+        }
+
+        .input-group i {
+            position: absolute;
+            left: 15px;
+            top: 50%;
+            transform: translateY(-50%);
+            color: #667eea;
+            font-size: 18px;
+        }
+
+        .input-group input,
+        .input-group select {
+            padding-left: 45px;
+            margin-bottom: 0;
+        }
+
+        /* Responsive Design */
+        @media (max-width: 480px) {
+            h1 {
+                font-size: 24px;
+            }
+
+            input,
+            select,
+            button {
+                padding: 12px;
+            }
+        }
+    </style>
+</head>
+
+<body>
+
+    <!-- Loading Overlay -->
+    <div id="loadingOverlay" class="loading-overlay">
+        <div class="loading-content">
+            <div class="loading-spinner"></div>
+            <div class="loading-text"><i class="fas fa-map-marked-alt"></i> Loading Field App</div>
+            <div class="loading-subtext" id="loadingStatus">Initializing...</div>
+            <div class="loading-progress">
+                <div class="loading-progress-bar"></div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Image Creation Overlay -->
+    <div id="creationOverlay" class="creation-overlay">
+        <div class="creation-content">
+            <div class="creation-spinner"></div>
+            <div class="creation-text"><i class="fas fa-magic"></i> Creating Your Image</div>
+            <div class="creation-subtext">Please wait while we process your photo...</div>
+        </div>
+    </div>
+
+    <div id="page1" class="page active">
+        <h1><i class="fas fa-home"></i> Home</h1>
+
+        <div class="card">
+            <div id="status">
+                <i class="fas fa-satellite-dish"></i>
+                <span>Capturing location...</span>
+            </div>
+
+            <div class="input-group">
+                <i class="fas fa-user"></i>
+                <input id="hks" placeholder="Enter Your Name" autocomplete="off">
+            </div>
+
+            <div class="input-group">
+                <i class="fas fa-map-pin"></i>
+                <select id="ward">
+                    <option>Ward 01</option>
+                    <option>Ward 02</option>
+                    <option>Ward 03</option>
+                    <option>Ward 04</option>
+                </select>
+            </div>
+
+            <div id="address">
+                <i class="fas fa-location-dot"></i>
+                <span></span>
+            </div>
+        </div>
+
+        <div class="card">
+            <div id="map"></div>
+        </div>
+    </div>
+
+    <div id="page2" class="page">
+        <h1><i class="fas fa-camera"></i> Capture Image</h1>
+
+        <div class="card" style="text-align: center;">
+            <input type="file" accept="image/*" capture="environment" id="photo" hidden>
+            <button onclick="openCamera()" style="padding: 20px; font-size: 18px;">
+                <i class="fas fa-camera-retro"></i> Capture Image
+            </button>
+            <img id="preview">
+            <button id="retakeBtn" onclick="openCamera()" style="display:none;">
+                <i class="fas fa-redo-alt"></i> Retake Photo
+            </button>
+        </div>
+    </div>
+
+    <div id="page3" class="page">
+        <h1><i class="fas fa-check-circle"></i> Final Image</h1>
+
+        <div class="card">
+            <img id="finalPreview">
+            <button id="downloadBtn" style="display:none;">
+                <i class="fas fa-download"></i> Download Image
+            </button>
+            <button id="shareBtn" style="display:none;">
+                <i class="fab fa-whatsapp"></i> Share via WhatsApp
+            </button>
+        </div>
+    </div>
+
+    <div id="miniMap"></div>
+
+    <div class="nav">
+        <button id="leftBtn" onclick="leftAction()" style="display:none;">
+            <i class="fas fa-home"></i> Home
+        </button>
+        <button id="rightBtn" onclick="rightAction()">
+            Next <i class="fas fa-arrow-right"></i>
+        </button>
+    </div>
+
+    <script>
+        let currentPage = 1;
+        let lat, lng, address = "";
+        let map, miniMap;
+        let photoData = "";
+        let finalImage = "";
+        let locationCaptured = false;
+
+        // Show loading overlay and initialize
+        document.addEventListener('DOMContentLoaded', function () {
+            setTimeout(() => {
+                captureLocation();
+            }, 1500);
+        });
+
+        function resetAllData() {
+            // Reset form fields
+            document.getElementById('hks').value = '';
+            document.getElementById('ward').selectedIndex = 0;
+
+            // Reset image data
+            photoData = "";
+            finalImage = "";
+
+            // Hide preview images
+            document.getElementById('preview').style.display = 'none';
+            document.getElementById('preview').src = '';
+            document.getElementById('finalPreview').style.display = 'none';
+            document.getElementById('finalPreview').src = '';
+
+            // Hide buttons
+            document.getElementById('retakeBtn').style.display = 'none';
+            document.getElementById('downloadBtn').style.display = 'none';
+            document.getElementById('shareBtn').style.display = 'none';
+
+            // Reset file input
+            document.getElementById('photo').value = '';
+
+            console.log('All data reset successfully');
+        }
+
+        function hideLoadingOverlay() {
+            document.getElementById('loadingOverlay').classList.add('hidden');
+        }
+
+        function showCreationOverlay() {
+            document.getElementById('creationOverlay').classList.add('active');
+        }
+
+        function hideCreationOverlay() {
+            document.getElementById('creationOverlay').classList.remove('active');
+        }
+
+        function showPage(page) {
+            currentPage = page;
+            document.querySelectorAll('.page').forEach(p => p.classList.remove('active'));
+            document.getElementById('page' + page).classList.add('active');
+            updateNav();
+            if (page === 1 && map) setTimeout(() => map.invalidateSize(), 300);
+        }
+
+        function updateNav() {
+            const leftBtn = document.getElementById('leftBtn');
+            const rightBtn = document.getElementById('rightBtn');
+
+            if (currentPage === 1) {
+                leftBtn.style.display = 'none';
+                rightBtn.innerHTML = 'Next <i class="fas fa-arrow-right"></i>';
+            }
+            else if (currentPage === 2) {
+                leftBtn.style.display = 'block';
+                leftBtn.innerHTML = '<i class="fas fa-home"></i> Home';
+                rightBtn.innerHTML = 'Next <i class="fas fa-arrow-right"></i>';
+            }
+            else if (currentPage === 3) {
+                leftBtn.style.display = 'block';
+                leftBtn.innerHTML = '<i class="fas fa-home"></i> Home';
+                rightBtn.innerHTML = '<i class="fas fa-arrow-left"></i> Back';
+            }
+        }
+
+        function leftAction() {
+            if (currentPage === 3) {
+                // Reset all data when going home from page 3
+                resetAllData();
+            }
+            showPage(1);
+        }
+
+        async function rightAction() {
+            if (currentPage === 1) {
+                showPage(2);
+            }
+            else if (currentPage === 2) {
+                if (!photoData) {
+                    alert('📸 Please capture an image first');
+                    return;
+                }
+                showCreationOverlay();
+                await createImage();
+                hideCreationOverlay();
+                showPage(3);
+            }
+            else if (currentPage === 3) {
+                showPage(2);
+            }
+        }
+
+        function captureLocation() {
+            document.getElementById('loadingStatus').innerText = 'Detecting your location...';
+
+            navigator.geolocation.getCurrentPosition(async pos => {
+                lat = pos.coords.latitude;
+                lng = pos.coords.longitude;
+
+                document.getElementById('loadingStatus').innerText = 'Location found! Loading map...';
+                document.getElementById('status').innerHTML = '<i class="fas fa-check-circle"></i> <span>Location captured successfully</span>';
+
+                map = L.map('map').setView([lat, lng], 18);
+
+                L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', {
+                    crossOrigin: true,
+                    attribution: '© OpenStreetMap'
+                }).addTo(map);
+
+                const smallIcon = L.icon({
+                    iconUrl: 'https://unpkg.com/leaflet@1.9.4/dist/images/marker-icon.png',
+                    iconSize: [16, 26],
+                    iconAnchor: [8, 26]
+                });
+
+                L.marker([lat, lng], { icon: smallIcon }).addTo(map);
+
+                document.getElementById('loadingStatus').innerText = 'Fetching address...';
+
+                const res = await fetch(
+                    `https://nominatim.openstreetmap.org/reverse?format=json&lat=${lat}&lon=${lng}`
+                );
+
+                const data = await res.json();
+                address = data.display_name || 'Address unavailable';
+                document.getElementById('address').innerHTML = '<i class="fas fa-location-dot"></i> <span>' + address + '</span>';
+
+                locationCaptured = true;
+
+                setTimeout(hideLoadingOverlay, 500);
+            }, error => {
+                document.getElementById('loadingStatus').innerText = '⚠️ Location access denied. Using default location.';
+
+                // Default location (New York)
+                lat = 40.7128;
+                lng = -74.0060;
+
+                map = L.map('map').setView([lat, lng], 12);
+
+                L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', {
+                    crossOrigin: true
+                }).addTo(map);
+
+                L.marker([lat, lng]).addTo(map);
+
+                address = 'Location access denied. Please enable location services.';
+                document.getElementById('address').innerHTML = '<i class="fas fa-exclamation-triangle"></i> <span>' + address + '</span>';
+
+                setTimeout(hideLoadingOverlay, 1000);
+            });
+        }
+
+        function initMiniMap() {
+            if (miniMap) miniMap.remove();
+
+            miniMap = L.map('miniMap', {
+                zoomControl: false,
+                attributionControl: false,
+                dragging: false
+            }).setView([lat, lng], 14);
+
+            const tiles = L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', {
+                crossOrigin: true
+            });
+
+            tiles.addTo(miniMap);
+            L.marker([lat, lng]).addTo(miniMap);
+
+            return new Promise(resolve => {
+                tiles.on('load', () => {
+                    setTimeout(resolve, 1000);
+                });
+            });
+        }
+
+        function openCamera() {
+            document.getElementById('photo').click();
+        }
+
+        document.getElementById('photo').addEventListener('change', function (e) {
+            const file = e.target.files[0];
+            const reader = new FileReader();
+
+            reader.onload = function (ev) {
+                photoData = ev.target.result;
+                document.getElementById('preview').src = photoData;
+                document.getElementById('preview').style.display = 'block';
+                document.getElementById('retakeBtn').style.display = 'block';
+            };
+
+            reader.readAsDataURL(file);
+        });
+
+        function wrapText(ctx, text, x, y, maxWidth, lineHeight) {
+            const words = text.split(' ');
+            let line = '';
+
+            for (let n = 0; n < words.length; n++) {
+                const testLine = line + words[n] + ' ';
+
+                if (ctx.measureText(testLine).width > maxWidth && n > 0) {
+                    ctx.fillText(line, x, y);
+                    line = words[n] + ' ';
+                    y += lineHeight;
+                } else {
+                    line = testLine;
+                }
+            }
+
+            ctx.fillText(line, x, y);
+            return y;
+        }
+
+        async function createImage() {
+            if (!photoData) {
+                alert('Capture image first');
+                return;
+            }
+
+            await initMiniMap();
+
+            const mapCanvas = await html2canvas(document.getElementById('miniMap'), {
+                useCORS: true,
+                allowTaint: true
+            });
+
+            const photo = new Image();
+            photo.src = photoData;
+            await new Promise(r => photo.onload = r);
+
+            const canvas = document.createElement('canvas');
+            const ctx = canvas.getContext('2d');
+
+            const width = 1080;
+            const ratio = photo.height / photo.width;
+            const photoHeight = width * ratio;
+
+            const isLandscape = photo.width > photo.height;
+            const mapSize = isLandscape ? 180 : 250;
+
+            ctx.font = 'bold 30px Arial';
+
+            function getWrappedLines(text, maxWidth) {
+                const words = text.split(' ');
+                let lines = [];
+                let line = '';
+
+                for (let word of words) {
+                    const test = line + word + ' ';
+
+                    if (ctx.measureText(test).width > maxWidth && line) {
+                        lines.push(line);
+                        line = word + ' ';
+                    } else {
+                        line = test;
+                    }
+                }
+
+                lines.push(line);
+                return lines;
+            }
+
+            const addressLines = getWrappedLines(address, 700);
+            const lineHeight = 42;
+            const footerTextHeight = 180 + (addressLines.length * lineHeight);
+            const footerHeight = Math.max(
+                isLandscape ? 240 : 340,
+                footerTextHeight + 40
+            );
+
+            canvas.width = width;
+            canvas.height = photoHeight + footerHeight;
+
+            ctx.drawImage(photo, 0, 0, width, photoHeight);
+
+            ctx.fillStyle = 'black';
+            ctx.fillRect(0, photoHeight, width, footerHeight);
+
+            const mapX = width - mapSize - 30;
+            const mapY = photoHeight + 30;
+
+            ctx.drawImage(mapCanvas, mapX, mapY, mapSize, mapSize);
+
+            let y = photoHeight + 55;
+
+            const timeText = '🕒 ' + new Date().toLocaleString();
+            ctx.font = 'bold 30px Arial';
+            const timeWidth = ctx.measureText(timeText).width;
+
+            ctx.fillStyle = 'rgba(255,255,255,0.15)';
+            ctx.fillRect(12, y - 34, timeWidth + 20, 42);
+
+            ctx.fillStyle = 'white';
+            ctx.fillText(timeText, 20, y);
+
+            y += 55;
+            ctx.fillText('📍 ' + document.getElementById('ward').value, 20, y);
+
+            y += 55;
+            ctx.fillText('👤 ' + (document.getElementById('hks').value || 'Anonymous'), 20, y);
+
+            y += 55;
+
+            for (let line of addressLines) {
+                ctx.fillText('🏠 ' + line.trim(), 20, y);
+                y += lineHeight;
+            }
+
+            finalImage = canvas.toDataURL('image/jpeg', 0.92);
+
+            document.getElementById('finalPreview').src = finalImage;
+            document.getElementById('finalPreview').style.display = 'block';
+
+            document.getElementById('downloadBtn').style.display = 'block';
+            document.getElementById('shareBtn').style.display = 'block';
+
+            document.getElementById('downloadBtn').onclick = function () {
+                const a = document.createElement('a');
+                a.href = finalImage;
+                a.download = 'field-image.jpg';
+                a.click();
+            };
+
+            document.getElementById('shareBtn').onclick = async function () {
+                const res = await fetch(finalImage);
+                const blob = await res.blob();
+                const file = new File([blob], 'field-image.jpg', { type: 'image/jpeg' });
+
+                // Get form values
+                const name = document.getElementById('hks').value || 'Anonymous';
+                const ward = document.getElementById('ward').value;
+
+                // Create Google Maps link
+                const mapsLink = `https://www.google.com/maps/search/?api=1&query=${lat},${lng}`;
+
+                // Create formatted message with bold name using WhatsApp formatting (*text* for bold)
+                const message = `*${name}*\nWard: ${ward}\n📍 Location: ${mapsLink}`;
+
+                // For WhatsApp sharing with image, we need to use the share API
+                if (navigator.canShare && navigator.canShare({ files: [file], text: message })) {
+                    try {
+                        await navigator.share({
+                            files: [file],
+                            title: 'Field Image',
+                            text: message
+                        });
+                    } catch (error) {
+                        console.log('Sharing cancelled or failed:', error);
+                    }
+                } else {
+                    // Fallback for browsers that don't support file sharing
+                    // Try to share just the text
+                    if (navigator.canShare && navigator.canShare({ text: message })) {
+                        navigator.share({
+                            text: message
+                        });
+                    } else {
+                        // If Web Share API is not supported, open WhatsApp with just the text
+                        const whatsappUrl = `https://wa.me/?text=${encodeURIComponent(message)}`;
+                        window.open(whatsappUrl, '_blank');
+                        alert('Please share the image manually from your gallery');
+                    }
+                }
+            };
+        }
+    </script>
+
+    <script>
+        if ('serviceWorker' in navigator) {
+            window.addEventListener('load', () => {
+                navigator.serviceWorker.register('./sw.js')
+                    .then(reg => console.log('SW registered', reg))
+                    .catch(err => console.log('SW failed', err));
+            });
+        }
+    </script>
+
+
+</body>
+
+</html>
