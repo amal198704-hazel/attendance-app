@@ -139,13 +139,19 @@
             border: 3px solid white;
         }
 
+
+
         #miniMap {
-            width: 220px;
-            height: 220px;
+            width: 600px;
+            height: 300px;
             position: absolute;
             left: -9999px;
             top: -9999px;
         }
+
+
+
+
 
         #status {
             background: linear-gradient(135deg, #f093fb 0%, #f5576c 100%);
@@ -742,7 +748,10 @@
             return y;
         }
 
+
+
         async function createImage() {
+
             if (!photoData) {
                 alert('Capture image first');
                 return;
@@ -766,9 +775,6 @@
             const ratio = photo.height / photo.width;
             const photoHeight = width * ratio;
 
-            const isLandscape = photo.width > photo.height;
-            const mapSize = isLandscape ? 180 : 250;
-
             ctx.font = 'bold 30px Arial';
 
             function getWrappedLines(text, maxWidth) {
@@ -778,7 +784,6 @@
 
                 for (let word of words) {
                     const test = line + word + ' ';
-
                     if (ctx.measureText(test).width > maxWidth && line) {
                         lines.push(line);
                         line = word + ' ';
@@ -791,51 +796,69 @@
                 return lines;
             }
 
-            const addressLines = getWrappedLines(address, 700);
-            const lineHeight = 42;
-            const footerTextHeight = 180 + (addressLines.length * lineHeight);
-            const footerHeight = Math.max(
-                isLandscape ? 240 : 340,
-                footerTextHeight + 40
-            );
+            const addressLines = getWrappedLines(address, width - 60);
+
+            const lineHeight = 40;
+
+            const overlayHeight = 180 + (addressLines.length * lineHeight);
+
+            // wide map ratio 2:1
+            const mapWidth = width - 60;
+            const mapHeight = mapWidth / 2;
+
+            const footerHeight = mapHeight + 40;
 
             canvas.width = width;
             canvas.height = photoHeight + footerHeight;
 
+            // draw photo
             ctx.drawImage(photo, 0, 0, width, photoHeight);
 
+            // overlay band inside image bottom
+            const overlayY = photoHeight - overlayHeight;
+
+            ctx.fillStyle = 'rgba(0,0,0,0.45)';
+            ctx.fillRect(0, overlayY, width, overlayHeight);
+
+            // text
+            ctx.fillStyle = 'white';
+            ctx.font = 'bold 30px Arial';
+
+            let y = overlayY + 45;
+
+            ctx.fillText('🕒 ' + new Date().toLocaleString(), 20, y);
+
+            y += 45;
+            ctx.fillText('📍 ' + document.getElementById('ward').value, 20, y);
+
+            y += 45;
+            ctx.fillText('👤 ' + (document.getElementById('hks').value || 'Anonymous'), 20, y);
+
+            y += 45;
+
+            for (let i = 0; i < addressLines.length; i++) {
+                const prefix = i === 0 ? '🏠 ' : '';
+                ctx.fillText(prefix + addressLines[i].trim(), 20, y);
+                y += lineHeight;
+            }
+
+            // footer background
             ctx.fillStyle = 'black';
             ctx.fillRect(0, photoHeight, width, footerHeight);
 
-            const mapX = width - mapSize - 30;
-            const mapY = photoHeight + 30;
+            // map position
+            const mapX = 30;
+            const mapY = photoHeight + 20;
 
-            ctx.drawImage(mapCanvas, mapX, mapY, mapSize, mapSize);
+            // rounded map corners
+            ctx.save();
+            ctx.beginPath();
+            ctx.roundRect(mapX, mapY, mapWidth, mapHeight, 18);
+            ctx.clip();
 
-            let y = photoHeight + 55;
+            ctx.drawImage(mapCanvas, mapX, mapY, mapWidth, mapHeight);
 
-            const timeText = '🕒 ' + new Date().toLocaleString();
-            ctx.font = 'bold 30px Arial';
-            const timeWidth = ctx.measureText(timeText).width;
-
-            ctx.fillStyle = 'rgba(255,255,255,0.15)';
-            ctx.fillRect(12, y - 34, timeWidth + 20, 42);
-
-            ctx.fillStyle = 'white';
-            ctx.fillText(timeText, 20, y);
-
-            y += 55;
-            ctx.fillText('📍 ' + document.getElementById('ward').value, 20, y);
-
-            y += 55;
-            ctx.fillText('👤 ' + (document.getElementById('hks').value || 'Anonymous'), 20, y);
-
-            y += 55;
-
-            for (let line of addressLines) {
-                ctx.fillText('🏠 ' + line.trim(), 20, y);
-                y += lineHeight;
-            }
+            ctx.restore();
 
             finalImage = canvas.toDataURL('image/jpeg', 0.92);
 
@@ -853,47 +876,40 @@
             };
 
             document.getElementById('shareBtn').onclick = async function () {
+
                 const res = await fetch(finalImage);
                 const blob = await res.blob();
-                const file = new File([blob], 'field-image.jpg', { type: 'image/jpeg' });
 
-                // Get form values
+                const file = new File([blob], 'field-image.jpg', {
+                    type: 'image/jpeg'
+                });
+
                 const name = document.getElementById('hks').value || 'Anonymous';
                 const ward = document.getElementById('ward').value;
 
-                // Create Google Maps link
                 const mapsLink = `https://www.google.com/maps/search/?api=1&query=${lat},${lng}`;
 
-                // Create formatted message with bold name using WhatsApp formatting (*text* for bold)
                 const message = `*${name}*\nWard: ${ward}\n📍 Location: ${mapsLink}`;
 
-                // For WhatsApp sharing with image, we need to use the share API
-                if (navigator.canShare && navigator.canShare({ files: [file], text: message })) {
-                    try {
-                        await navigator.share({
-                            files: [file],
-                            title: 'Field Image',
-                            text: message
-                        });
-                    } catch (error) {
-                        console.log('Sharing cancelled or failed:', error);
-                    }
+                if (navigator.canShare && navigator.canShare({ files: [file] })) {
+                    await navigator.share({
+                        files: [file],
+                        title: 'Field Image',
+                        text: message
+                    });
                 } else {
-                    // Fallback for browsers that don't support file sharing
-                    // Try to share just the text
-                    if (navigator.canShare && navigator.canShare({ text: message })) {
-                        navigator.share({
-                            text: message
-                        });
-                    } else {
-                        // If Web Share API is not supported, open WhatsApp with just the text
-                        const whatsappUrl = `https://wa.me/?text=${encodeURIComponent(message)}`;
-                        window.open(whatsappUrl, '_blank');
-                        alert('Please share the image manually from your gallery');
-                    }
+                    alert('Sharing not supported');
                 }
+
             };
+
         }
+
+
+
+
+
+
     </script>
 
     <script>
