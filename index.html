@@ -740,16 +740,34 @@
 
         document.getElementById('photo').addEventListener('change', function (e) {
             const file = e.target.files[0];
-            const reader = new FileReader();
 
-            reader.onload = function (ev) {
-                photoData = ev.target.result;
+            const img = new Image();
+            const url = URL.createObjectURL(file);
+
+            img.onload = function () {
+                const canvas = document.createElement('canvas');
+                const ctx = canvas.getContext('2d');
+
+                // 🔻 reduce resolution (IMPORTANT)
+                const maxWidth = 800;   // instead of original huge size
+                const scale = maxWidth / img.width;
+
+                canvas.width = maxWidth;
+                canvas.height = img.height * scale;
+
+                ctx.drawImage(img, 0, 0, canvas.width, canvas.height);
+
+                // 🔻 compress quality
+                photoData = canvas.toDataURL('image/jpeg', 0.6);
+
                 document.getElementById('preview').src = photoData;
                 document.getElementById('preview').style.display = 'block';
                 document.getElementById('retakeBtn').style.display = 'block';
+
+                URL.revokeObjectURL(url);
             };
 
-            reader.readAsDataURL(file);
+            img.src = url;
         });
 
         function wrapText(ctx, text, x, y, maxWidth, lineHeight) {
@@ -781,12 +799,15 @@
                 return;
             }
 
-            await initMiniMap();
 
-            const mapCanvas = await html2canvas(document.getElementById('miniMap'), {
-                useCORS: true,
-                allowTaint: true
-            });
+
+            const mapImg = new Image();
+            mapImg.crossOrigin = "anonymous";
+
+            // OpenStreetMap static image alternative
+            mapImg.src = `https://static-maps.yandex.ru/1.x/?ll=${lng},${lat}&size=600,300&z=15&l=map&pt=${lng},${lat},pm2rdm`;
+
+            await new Promise(r => mapImg.onload = r);
 
             const photo = new Image();
             photo.src = photoData;
@@ -795,7 +816,7 @@
             const canvas = document.createElement('canvas');
             const ctx = canvas.getContext('2d');
 
-            const width = 1080;
+            const width = 720;
             const ratio = photo.height / photo.width;
             const photoHeight = width * ratio;
 
@@ -880,11 +901,27 @@
             ctx.roundRect(mapX, mapY, mapWidth, mapHeight, 18);
             ctx.clip();
 
-            ctx.drawImage(mapCanvas, mapX, mapY, mapWidth, mapHeight);
+            ctx.drawImage(mapImg, mapX, mapY, mapWidth, mapHeight);
 
             ctx.restore();
 
-            finalImage = canvas.toDataURL('image/jpeg', 0.92);
+            finalImage = canvas.toBlob(blob => {
+                finalImage = URL.createObjectURL(blob);
+
+                document.getElementById('finalPreview').src = finalImage;
+                document.getElementById('finalPreview').style.display = 'block';
+
+                document.getElementById('downloadBtn').style.display = 'block';
+                document.getElementById('shareBtn').style.display = 'block';
+
+                document.getElementById('downloadBtn').onclick = function () {
+                    const a = document.createElement('a');
+                    a.href = finalImage;
+                    a.download = 'field-image.jpg';
+                    a.click();
+                };
+
+            }, 'image/jpeg', 0.85);
 
             document.getElementById('finalPreview').src = finalImage;
             document.getElementById('finalPreview').style.display = 'block';
@@ -926,9 +963,14 @@
                 }
 
             };
+            // free memory AFTER processing
+            setTimeout(() => {
+                photoData = null;
+                photo.src = "";
+                mapImg.src = "";
+            }, 1000);
 
         }
-
 
 
 
